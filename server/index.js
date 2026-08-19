@@ -14,10 +14,15 @@ const app=express()
 
 app.post("/api/stripe/webhook",express.raw({type:"application/json"}),stripeWebhook)
 const port=process.env.PORT || 5000
+const allowedOrigins=[
+    "http://localhost:5173",
+    process.env.CLIENT_URL
+].filter(Boolean)
+
 app.use(express.json())
 app.use(cookieParser())
 app.use(cors({
-    origin:"http://localhost:5173",
+    origin:allowedOrigins,
     credentials:true
 }))
 app.use("/api/auth",authRouter)
