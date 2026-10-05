@@ -1,16 +1,18 @@
-import { ArrowLeft, Check, Coins } from 'lucide-react';
+import { ArrowLeft, Check, Coins, QrCode, Smartphone } from 'lucide-react';
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom';
 
 import { motion } from "motion/react"
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
 import { serverUrl } from '../config';
+import { setUserData } from '../redux/userSlice';
+
 const plans = [
     {
         key: "free",
         name: "Free",
-        price: "₹0",
+        price: "Rs. 0",
         credits: 100,
         description: "Perfect to explore GenWeb.ai",
         features: [
@@ -24,7 +26,7 @@ const plans = [
     {
         key: "pro",
         name: "Pro",
-        price: "₹499",
+        price: "Rs. 499",
         credits: 500,
         description: "For serious creators & freelancers",
         features: [
@@ -33,12 +35,12 @@ const plans = [
             "Edit & regenerate",
         ],
         popular: true,
-        button: "Upgrade to Pro",
+        button: "Pay with UPI",
     },
     {
         key: "enterprise",
         name: "Enterprise",
-        price: "₹1499",
+        price: "Rs. 1499",
         credits: 1000,
         description: "For teams & power users",
         features: [
@@ -48,32 +50,90 @@ const plans = [
             "Dedicated support",
         ],
         popular: false,
-        button: "Contact Sales",
+        button: "Pay with UPI",
     },
 ];
-function Pricing() {
-    const navigate = useNavigate()
-  const {userData}=useSelector(state=>state.user)
-  const [loading,setLoading]=useState(null)
-    const handleBuy=async (planKey)=>{
-if(!userData){
-navigate("/")
-return
-}
-if(planKey=="free"){
-    navigate("/dashboard")
-    return
-}
-setLoading(planKey)
-try {
-    const result=await axios.post(`${serverUrl}/api/billing`,{planType:planKey},{withCredentials:true})
-    window.location.assign(result.data.sessionUrl)
-} catch (error) {
-    console.log(error)
-    setLoading(null)
+
+const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+        if (window.Razorpay) {
+            resolve(true)
+            return
+        }
+
+        const script = document.createElement("script")
+        script.src = "https://checkout.razorpay.com/v1/checkout.js"
+        script.onload = () => resolve(true)
+        script.onerror = () => resolve(false)
+        document.body.appendChild(script)
+    })
 }
 
+function Pricing() {
+    const navigate = useNavigate()
+    const dispatch = useDispatch()
+    const { userData } = useSelector(state => state.user)
+    const [loading, setLoading] = useState(null)
+
+    const handleBuy = async (planKey) => {
+        if (!userData) {
+            navigate("/")
+            return
+        }
+
+        if (planKey == "free") {
+            navigate("/dashboard")
+            return
+        }
+
+        setLoading(planKey)
+
+        try {
+            const isLoaded = await loadRazorpayScript()
+
+            if (!isLoaded) {
+                alert("Unable to load payment gateway. Please try again.")
+                setLoading(null)
+                return
+            }
+
+            const result = await axios.post(`${serverUrl}/api/billing`, { planType: planKey }, { withCredentials: true })
+            const order = result.data
+
+            const razorpay = new window.Razorpay({
+                key: order.key,
+                amount: order.amount,
+                currency: order.currency,
+                name: "GenWeb.ai",
+                description: order.description,
+                order_id: order.orderId,
+                prefill: order.prefill,
+                theme: {
+                    color: "#6366f1"
+                },
+                handler: async (response) => {
+                    const verifyResult = await axios.post(`${serverUrl}/api/billing/verify`, response, { withCredentials: true })
+                    dispatch(setUserData({
+                        ...userData,
+                        credits: verifyResult.data.credits,
+                        plan: verifyResult.data.plan
+                    }))
+                    setLoading(null)
+                    navigate("/dashboard")
+                },
+                modal: {
+                    ondismiss: () => setLoading(null)
+                }
+            })
+
+            razorpay.open()
+        } catch (error) {
+            console.log(error)
+            alert(error.response?.data?.message || "Payment failed. Please try again.")
+            setLoading(null)
+        }
     }
+
     return (
         <div className='relative min-h-screen overflow-hidden bg-[#050505] text-white px-6 pt-16 pb-24'>
 
@@ -92,7 +152,7 @@ try {
                 className="relative z-10 max-w-4xl mx-auto text-center mb-14"
             >
                 <h1 className='text-4xl md:text-5xl font-bold mb-4'> Simple, transparent pricing</h1>
-                <p className='text-zinc-400 text-lg'> Buy credits once. Build anytime.</p>
+                <p className='text-zinc-400 text-lg'> Buy credits using UPI, QR, Paytm, Google Pay, cards, or net banking.</p>
             </motion.div>
 
             <div className='relative z-10 max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8'>
@@ -125,6 +185,19 @@ try {
                             <span className='font-semibold'>{p.credits} Credits</span>
                         </div>
 
+                        {p.key !== "free" && (
+                            <div className='mb-8 grid grid-cols-2 gap-3 text-xs text-zinc-300'>
+                                <div className='flex items-center gap-2 rounded-xl bg-white/5 border border-white/10 px-3 py-2'>
+                                    <QrCode size={15} className='text-indigo-300' />
+                                    QR / UPI
+                                </div>
+                                <div className='flex items-center gap-2 rounded-xl bg-white/5 border border-white/10 px-3 py-2'>
+                                    <Smartphone size={15} className='text-emerald-300' />
+                                    Paytm / GPay
+                                </div>
+                            </div>
+                        )}
+
                         <ul className='space-y-3 mb-10'>
                             {p.features.map((f) => (
                                 <li
@@ -141,14 +214,14 @@ try {
                         <motion.button
                             whileTap={{ scale: 0.96 }}
                             disabled={loading}
-                            onClick={()=>handleBuy(p.key)}
+                            onClick={() => handleBuy(p.key)}
                             className={`w-full py-3 rounded-xl font-semibold transition
                               ${p.popular
                                     ? "bg-indigo-500 hover:bg-indigo-600"
                                     : "bg-white/10 hover:bg-white/20"
                                 } disabled:opacity-60`}
                         >
-                            {loading===p.key?"Redirecting...":p.button}
+                            {loading === p.key ? "Opening payment..." : p.button}
 
 
                         </motion.button>

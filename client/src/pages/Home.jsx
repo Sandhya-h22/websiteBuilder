@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from "motion/react"
 import LoginModal from '../components/LoginModal'
 import { useDispatch, useSelector } from 'react-redux'
-import { Coins } from "lucide-react"
+import { Coins, CreditCard } from "lucide-react"
 import { serverUrl } from '../config'
 import axios from 'axios'
 import { setUserData } from '../redux/userSlice'
@@ -99,7 +99,7 @@ function Home() {
                                                     <p className='text-xs text-zinc-500 truncate'>{userData.email}</p>
                                                 </div>
 
-                                                <button className='md:hidden w-full px-4 py-3 flex items-center gap-2 text-sm border-b border-white/10 hover:bg-white/5'>
+                                                <button className='md:hidden w-full px-4 py-3 flex items-center gap-2 text-sm border-b border-white/10 hover:bg-white/5' onClick={() => navigate("/pricing")}>
                                                     <Coins size={14} className='text-yellow-400' />
                                                     <span className='text-zinc-300'>Credits</span>
                                                     <span>{userData.credits}</span>
@@ -107,6 +107,10 @@ function Home() {
                                                 </button>
 
                                                 <button className='w-full px-4 py-3 text-left text-sm hover:bg-white/5' onClick={() => navigate("/dashboard")}>Dashboard</button>
+                                                <button className='w-full px-4 py-3 flex items-center gap-2 text-sm hover:bg-white/5' onClick={() => navigate("/pricing")}>
+                                                    <CreditCard size={14} className='text-indigo-300' />
+                                                    Pricing
+                                                </button>
                                                 <button className='w-full px-4 py-3 text-left text-sm text-red-400 hover:bg-white/5' onClick={handleLogOut}>Logout</button>
 
                                             </motion.div>

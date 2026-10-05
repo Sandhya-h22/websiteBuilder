@@ -1,5 +1,9 @@
 const openRouterUrl = "https://openrouter.ai/api/v1/chat/completions"
-const model = "deepseek/deepseek-chat"
+const models = [
+    process.env.OPENROUTER_MODEL || "deepseek/deepseek-chat",
+    "apodex/apodex-1.1-mini:free",
+    "inclusionai/ling-3.1-flash"
+]
 
 export const generateResponse = async (prompt) => {
     const res = await fetch(openRouterUrl, {
@@ -9,7 +13,7 @@ export const generateResponse = async (prompt) => {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            model: model,
+            models,
             messages: [
                 { role: "system", content: "You must return ONLY valid raw JSON." }
                 ,
@@ -24,7 +28,7 @@ export const generateResponse = async (prompt) => {
 
 if(!res.ok){
     const err=await res.text()
-    throw new Error("openRouter err"+err)
+    throw new Error(`OpenRouter is temporarily unavailable or rate-limited. Please retry shortly. Details: ${err}`)
 }
 
 const data=await res.json()

@@ -1,9 +1,11 @@
 const extractJson = async (text) => {
     if (!text) {
-        return
+        return null
     }
-    const cleaned = text.
-         replace(/```json/gi, "")
+
+    try {
+        const cleaned = text
+        .replace(/```json/gi, "")
         .replace(/```/g, "")
         .trim();
 
@@ -12,6 +14,9 @@ const extractJson = async (text) => {
         if(firstBrace===-1 || closeBrace==-1)return null
         const jsonString=cleaned.slice(firstBrace,closeBrace+1)
         return JSON.parse(jsonString)
+    } catch (error) {
+        return null
+    }
 
 }
 export default extractJson

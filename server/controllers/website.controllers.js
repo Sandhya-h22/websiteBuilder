@@ -151,6 +151,110 @@ ABSOLUTE RULES
 - IF FORMAT IS BROKEN → RESPONSE IS INVALID
 `;
 
+const responsiveRequirements = `
+
+RESPONSIVE IMPLEMENTATION ADDENDUM:
+- The HTML document MUST include <meta name="viewport" content="width=device-width, initial-scale=1.0">.
+- Use mobile-first CSS. Base styles must work on screens around 320px wide.
+- Use at least two real media queries: one for tablet and one for desktop.
+- Use flexible layouts: flex, grid, minmax(), auto-fit/auto-fill, %, rem, and clamp().
+- Do not use fixed-width page containers that can overflow mobile screens.
+- Every image, video, iframe, canvas, and SVG must be constrained with max-width: 100%.
+- The page must never create horizontal scrolling on mobile.
+- Navigation must collapse, wrap, or stack on mobile.
+- Multi-column sections must become one column on mobile.
+- Large headings must use clamp() or smaller mobile font sizes.
+`;
+
+const responsiveSafetyCss = `
+*, *::before, *::after { box-sizing: border-box; }
+html { width: 100%; max-width: 100%; overflow-x: hidden; }
+body { width: 100%; max-width: 100%; min-width: 0; overflow-x: hidden; margin: 0; }
+main, section, header, footer, nav, article, aside, div { min-width: 0; }
+img, video, canvas, svg, iframe { max-width: 100%; height: auto; }
+table { max-width: 100%; border-collapse: collapse; }
+pre, code { white-space: pre-wrap; word-break: break-word; }
+body { font-size: clamp(0.95rem, 0.9rem + 0.25vw, 1.05rem); }
+@media (max-width: 768px) {
+  html, body { width: 100% !important; max-width: 100% !important; min-width: 0 !important; overflow-x: hidden !important; }
+  body * { max-width: 100%; }
+  section, header, footer, main, nav, article, aside { width: 100%; max-width: 100%; }
+  .container, .wrapper, .content, .inner, .row, .grid, .cards, .features, .services, .pricing, .portfolio {
+    width: 100% !important;
+    max-width: 100% !important;
+    grid-template-columns: 1fr !important;
+    flex-wrap: wrap !important;
+  }
+  [style*="width"] { max-width: 100% !important; }
+}
+@media (min-width: 769px) and (max-width: 1024px) {
+  .container, .wrapper, .content, .inner { max-width: min(92vw, 960px); }
+  .grid, .cards, .features, .services, .pricing, .portfolio { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1025px) {
+  .container, .wrapper, .content, .inner { max-width: min(92vw, 1200px); }
+}
+`;
+
+const hasResponsiveMarkers = (html) => {
+    const mediaQueries = html.match(/@media\s*\(/gi) || [];
+    return /<meta\s+name=["']viewport["']/i.test(html) && mediaQueries.length >= 2;
+};
+
+const makeResponsiveHtml = (html) => {
+    if (!html || typeof html !== "string") return html;
+
+    let output = html.trim();
+
+    if (!/<meta\s+name=["']viewport["']/i.test(output)) {
+        if (/<head[^>]*>/i.test(output)) {
+            output = output.replace(/<head[^>]*>/i, (match) => `${match}\n<meta name="viewport" content="width=device-width, initial-scale=1.0">`);
+        } else {
+            output = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1.0"></head><body>${output}</body></html>`;
+        }
+    }
+
+    if (/<\/style>/i.test(output)) {
+        output = output.replace(/<\/style>/i, `\n${responsiveSafetyCss}\n</style>`);
+    } else if (/<style[^>]*>/i.test(output)) {
+        output = output.replace(/<style[^>]*>/i, (match) => `${match}\n${responsiveSafetyCss}`);
+    } else if (/<head[^>]*>/i.test(output)) {
+        output = output.replace(/<\/head>/i, `<style>${responsiveSafetyCss}</style>\n</head>`);
+    }
+
+    return output;
+};
+
+const getResponsiveGeneration = async (prompt, retryMessage) => {
+    let raw = "";
+
+    for (let i = 0; i < 3; i++) {
+        const attemptPrompt = i === 0
+            ? prompt
+            : `${prompt}
+
+${retryMessage}
+RETURN ONLY RAW JSON.`;
+
+        raw = await generateResponse(attemptPrompt);
+        const parsed = await extractJson(raw);
+
+        if (parsed?.code && typeof parsed.code === "string") {
+            const responsiveCode = makeResponsiveHtml(parsed.code);
+
+            if (hasResponsiveMarkers(responsiveCode)) {
+                return {
+                    message: parsed.message || "Website generated successfully.",
+                    code: responsiveCode
+                };
+            }
+        }
+    }
+
+    console.log("ai returned invalid response", raw);
+    return null;
+};
+
 
 export const generateWebsite = async (req, res) => {
     try {
@@ -167,29 +271,20 @@ export const generateWebsite = async (req, res) => {
             return res.status(400).json({ message: "you have not enough credits to generate a webiste" })
         }
 
-        const finalPrompt = masterPrompt.replace("USER_PROMPT", prompt)
-        let raw = ""
-        let parsed = null
-        for (let i = 0; i < 2 && !parsed; i++) {
-            raw = await generateResponse(finalPrompt)
-            parsed = await extractJson(raw)
+        const finalPrompt = `${masterPrompt.replace("{USER_PROMPT}", prompt)}${responsiveRequirements}`
+        const generated = await getResponsiveGeneration(
+            finalPrompt,
+            "The previous output failed responsive validation. Regenerate it with a viewport meta tag, at least two @media queries, mobile-first CSS, one-column mobile sections, responsive navigation, and no horizontal overflow."
+        );
 
-            if (!parsed) {
-                raw = await generateResponse(finalPrompt + "\n\nRETURN ONLY RAW JSON.")
-                parsed = await extractJson(raw)
-            }
-
-        }
-
-        if (!parsed.code) {
-            console.log("ai returned invalid response", raw)
+        if (!generated) {
             return res.status(400).json({ message: "ai returned invalid response" })
         }
 
         const website = await Website.create({
             user: user._id,
             title: prompt.slice(0, 60),
-            latestCode: parsed.code,
+            latestCode: generated.code,
             conversation: [
                 {
                     role: "user",
@@ -197,7 +292,7 @@ export const generateWebsite = async (req, res) => {
                 },
                 {
                     role: "ai",
-                    content: parsed.message
+                    content: generated.message
                 }
                 
             ]
@@ -268,45 +363,48 @@ ${website.latestCode}
 USER REQUEST:
 ${prompt}
 
+${responsiveRequirements}
+
+IMPORTANT:
+- Preserve all existing content unless the user asks to change it.
+- The updated full HTML must remain mobile-first and responsive.
+- Include viewport meta, responsive media queries, flexible layouts, and no horizontal mobile overflow.
+
 RETURN RAW JSON ONLY:
 {
   "message": "Short confirmation",
   "code": "<UPDATED FULL HTML>"
 }
 `
-        let raw = ""
-        let parsed = null
-        for (let i = 0; i < 2 && !parsed; i++) {
-            raw = await generateResponse(updatePrompt)
-            parsed = await extractJson(raw)
+        const finalUpdatePrompt = `${updatePrompt}
 
-            if (!parsed) {
-                raw = await generateResponse(updatePrompt + "\n\nRETURN ONLY RAW JSON.")
-                parsed = await extractJson(raw)
-            }
+The updated HTML will be rejected unless it contains a viewport meta tag and at least two @media queries.
+RETURN ONLY RAW JSON.`
 
-        }
+        const generated = await getResponsiveGeneration(
+            finalUpdatePrompt,
+            "The previous output failed responsive validation. Regenerate the full updated HTML with a viewport meta tag and at least two @media queries."
+        );
 
-        if (!parsed.code) {
-            console.log("ai returned invalid response", raw)
+        if (!generated) {
             return res.status(400).json({ message: "ai returned invalid response" })
         }
 
 
         website.conversation.push(
             { role: "user", content: prompt },
-            { role: "ai", content: parsed.message },
+            { role: "ai", content: generated.message },
         )
 
-        website.latestCode = parsed.code
+        website.latestCode = generated.code
 
         await website.save()
         user.credits = user.credits - 25
         await user.save()
 
         return res.status(200).json({
-            message:parsed.message,
-            code:parsed.code,
+            message:generated.message,
+            code:generated.code,
             remainingCredits: user.credits
         })
 

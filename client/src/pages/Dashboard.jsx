@@ -1,4 +1,4 @@
-import { ArrowLeft, Check, Rocket, Share2 } from 'lucide-react'
+import { ArrowLeft, Check, Coins, Rocket, Share2 } from 'lucide-react'
 import React, { useEffect, useState } from 'react'
 import { motion } from "motion/react"
 import { useSelector } from 'react-redux'
@@ -59,9 +59,20 @@ function Dashboard() {
                         <button className='p-2 rounded-lg hover:bg-white/10 transition' onClick={() => navigate("/")}><ArrowLeft size={16} /></button>
                         <h1 className='text-lg font-semibold'>Dashboard</h1>
                     </div>
-                    <button className='px-4 py-2 rounded-lg bg-white text-black text-sm font-semibold hover:scale-105 transition' onClick={() => navigate("/generate")}>
-                        + New Website
-                    </button>
+                    <div className='flex items-center gap-3'>
+                        <button
+                            className='hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm hover:bg-white/10 transition'
+                            onClick={() => navigate("/pricing")}
+                        >
+                            <Coins size={15} className='text-yellow-400' />
+                            <span>{userData.credits}</span>
+                            <span className='text-zinc-400'>credits</span>
+                            <span className='font-semibold'>+</span>
+                        </button>
+                        <button className='px-4 py-2 rounded-lg bg-white text-black text-sm font-semibold hover:scale-105 transition' onClick={() => navigate("/generate")}>
+                            + New Website
+                        </button>
+                    </div>
                 </div>
             </div>
             <div className='max-w-7xl mx-auto px-6 py-10'>
@@ -72,6 +83,15 @@ function Dashboard() {
                 >
                     <p className='text-sm text-zinc-400 mb-1'>Welcome Back</p>
                     <h1 className='text-3xl font-bold'>{userData.name}</h1>
+                    <button
+                        className='mt-4 sm:hidden inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm hover:bg-white/10 transition'
+                        onClick={() => navigate("/pricing")}
+                    >
+                        <Coins size={15} className='text-yellow-400' />
+                        <span>{userData.credits}</span>
+                        <span className='text-zinc-400'>credits</span>
+                        <span className='font-semibold'>+</span>
+                    </button>
                 </motion.div>
 
                 {loading && (
