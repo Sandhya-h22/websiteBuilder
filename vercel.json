@@ -1,5 +1,5 @@
 {
-  "buildCommand": "cd client && npm install && npm run build",
+  "buildCommand": "unset npm_config_cache_dir NPM_CONFIG_CACHE_DIR; cd client && npm install && npm run build",
   "outputDirectory": "client/dist",
   "rewrites": [
     {
