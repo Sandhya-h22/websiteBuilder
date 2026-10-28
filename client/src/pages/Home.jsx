@@ -41,7 +41,12 @@ function Home() {
             try {
 
                 const result = await axios.get(`${serverUrl}/api/website/get-all`, { withCredentials: true })
-                setWebsites(result.data || [])
+                if (!Array.isArray(result.data)) {
+                    console.error("Expected the websites API to return an array:", result.data)
+                    setWebsites([])
+                    return
+                }
+                setWebsites(result.data)
 
             } catch (error) {
                 console.log(error)
@@ -174,7 +179,7 @@ function Home() {
             </section>}
 
 
-            {userData && websites?.length > 0 && (
+            {userData && Array.isArray(websites) && websites.length > 0 && (
                 <section className='max-w-7xl mx-auto px-6 pb-32'>
                     <h3 className='text-2xl font-semibold mb-6'>Your Websites</h3>
 
