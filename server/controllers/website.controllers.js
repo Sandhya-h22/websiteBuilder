@@ -1,4 +1,4 @@
-import { generateResponse } from "../config/openRouter.js";
+import { fastModels, generateResponse } from "../config/openRouter.js";
 import User from "../models/user.model.js";
 import Website from "../models/website.model.js";
 import extractJson from "../utils/extractJson.js";
@@ -72,6 +72,13 @@ IMAGES (MANDATORY & RESPONSIVE)
 - EVERY image URL MUST include:
   ?auto=format&fit=crop&w=1200&q=80
 
+- Use DIFFERENT image URLs for different sections/cards.
+- Do NOT repeat the same image URL in multiple places.
+- Choose images that match each specific section, service, gallery item, testimonial, or hero.
+- Prefer real Unsplash photo URLs like:
+  https://images.unsplash.com/photo-...
+- Do NOT use generic placeholder images.
+
 - Images must:
   - Be responsive (max-width: 100%)
   - Resize correctly on mobile
@@ -81,6 +88,8 @@ IMAGES (MANDATORY & RESPONSIVE)
 TECHNICAL RULES (VERY IMPORTANT)
 --------------------------------------------------
 - Output ONE single HTML file
+- The HTML must be complete and valid: <!DOCTYPE html>, <html>, <head>, <body>, closing tags.
+- Never output broken visible tag text like nav>, div>, header>, section>, or img>.
 - Exactly ONE <style> tag
 - Exactly ONE <script> tag
 - NO external CSS / JS / fonts
@@ -116,6 +125,10 @@ FUNCTIONAL REQUIREMENTS
 - Forms must have JS validation
 - Buttons must show hover + active states
 - Smooth section/page transitions
+- Every button, CTA, nav item, mobile menu control, and form submit must do something visible.
+- CTA buttons should navigate to a page/section, open contact, scroll, filter content, or show a confirmation.
+- Mobile menu buttons must open and close the menu on small screens.
+- Do not create decorative buttons without JavaScript behavior.
 
 --------------------------------------------------
 FINAL SELF-CHECK (MANDATORY)
@@ -164,6 +177,32 @@ RESPONSIVE IMPLEMENTATION ADDENDUM:
 - Navigation must collapse, wrap, or stack on mobile.
 - Multi-column sections must become one column on mobile.
 - Large headings must use clamp() or smaller mobile font sizes.
+- Product/card/gallery grids must use repeat(auto-fit, minmax(...)) or mobile-first single-column grids.
+- Mobile layout must look intentionally designed, not only browser default text and links.
+`;
+
+const imageDiversityRequirements = `
+
+IMAGE DIVERSITY ADDENDUM:
+- If the website contains more than one image, every image URL MUST be unique.
+- Do not reuse the hero image in cards, galleries, service sections, about sections, or backgrounds.
+- Match each image to its content. Example: living room, bedroom, kitchen, furniture, decor, office, consultation, team, project gallery.
+- Every image must use a complete https://images.unsplash.com/photo-... URL with ?auto=format&fit=crop&w=1200&q=80.
+- Do not invent incomplete image URLs. Every <img> src must start with https://images.unsplash.com/photo-.
+- If the user asks for 20 images, create at least 20 real <img> elements with unique complete Unsplash URLs.
+- All images must keep object-fit: cover or equivalent responsive cropping and must never overflow on mobile.
+`;
+
+const interactiveRequirements = `
+
+INTERACTION ADDENDUM:
+- Every <button> must be connected to JavaScript behavior using addEventListener, onclick, or a delegated click handler.
+- Every nav link must switch SPA pages or scroll to the correct section without reloading the iframe.
+- All CTA buttons must perform a useful visible action such as changing page, scrolling, opening contact, or showing a message.
+- Contact/newsletter/booking forms must validate required fields and show success/error feedback.
+- Mobile navigation must include a working open/close toggle if the nav collapses on mobile.
+- The <script> tag must include event listeners for navigation, buttons, forms, and mobile menu behavior.
+- Avoid href="#" unless JavaScript prevents default behavior and performs a visible action.
 `;
 
 const responsiveSafetyCss = `
@@ -172,6 +211,7 @@ html { width: 100%; max-width: 100%; overflow-x: hidden; }
 body { width: 100%; max-width: 100%; min-width: 0; overflow-x: hidden; margin: 0; }
 main, section, header, footer, nav, article, aside, div { min-width: 0; }
 img, video, canvas, svg, iframe { max-width: 100%; height: auto; }
+img { display: block; object-fit: cover; }
 table { max-width: 100%; border-collapse: collapse; }
 pre, code { white-space: pre-wrap; word-break: break-word; }
 body { font-size: clamp(0.95rem, 0.9rem + 0.25vw, 1.05rem); }
@@ -201,10 +241,161 @@ const hasResponsiveMarkers = (html) => {
     return /<meta\s+name=["']viewport["']/i.test(html) && mediaQueries.length >= 2;
 };
 
+const hasCompleteHtmlStructure = (html) => {
+    const requiredTags = [
+        /<html\b/i,
+        /<\/html>/i,
+        /<head\b/i,
+        /<\/head>/i,
+        /<body\b/i,
+        /<\/body>/i,
+        /<style\b[^>]*>[\s\S]*<\/style>/i,
+        /<script\b[^>]*>[\s\S]*<\/script>/i
+    ];
+
+    const hasRequiredTags = requiredTags.every((pattern) => pattern.test(html));
+    const visibleText = html
+        .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
+        .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
+        .replace(/<[^>]+>/g, " ");
+    const hasVisibleBrokenTag = /\b(nav|header|section|footer|main|aside|article|div|button|form|ul|li|img|script|style)>/i.test(visibleText);
+
+    return hasRequiredTags && !hasVisibleBrokenTag;
+};
+
+const hasInteractionMarkers = (html) => {
+    const hasButtons = /<button\b/i.test(html);
+    const hasForms = /<form\b/i.test(html);
+    const hasNav = /<nav\b/i.test(html) || /class=["'][^"']*(nav|menu|navbar)/i.test(html);
+
+    if (!hasButtons && !hasForms && !hasNav) return true;
+
+    const scriptMatch = html.match(/<script\b[^>]*>([\s\S]*?)<\/script>/i);
+    if (!scriptMatch) return false;
+
+    const script = scriptMatch[1];
+    const handlesClick = /addEventListener\s*\(\s*["']click["']|onclick\s*=|\.onclick\s*=|onClick/i.test(html);
+    const handlesSubmit = !hasForms || /addEventListener\s*\(\s*["']submit["']|onsubmit\s*=|\.onsubmit\s*=|preventDefault\s*\(/i.test(html);
+    const hasVisibleAction = /classList|scrollIntoView|style\.display|style\.transform|textContent|innerHTML|alert\s*\(|show|toggle|active|success|error/i.test(script);
+
+    return handlesClick && handlesSubmit && hasVisibleAction;
+};
+
+const getImageUrls = (html) => {
+    if (!html || typeof html !== "string") return [];
+
+    const urls = [];
+    const imgSrcRegex = /<img\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi;
+    const cssUrlRegex = /url\(\s*["']?([^"')]+)["']?\s*\)/gi;
+
+    for (const match of html.matchAll(imgSrcRegex)) {
+        urls.push(match[1].trim());
+    }
+
+    for (const match of html.matchAll(cssUrlRegex)) {
+        const url = match[1].trim();
+        if (/images\.unsplash\.com/i.test(url)) {
+            urls.push(url);
+        }
+    }
+
+    return urls;
+};
+
+const getImgSrcUrls = (html) => {
+    if (!html || typeof html !== "string") return [];
+    return [...html.matchAll(/<img\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi)]
+        .map((match) => match[1].trim());
+};
+
+const hasUniqueImages = (html) => {
+    const imageUrls = getImageUrls(html);
+    if (imageUrls.length <= 1) return true;
+
+    const normalized = imageUrls.map((url) => url.replace(/&amp;/g, "&"));
+    return new Set(normalized).size === normalized.length;
+};
+
+const hasValidImageUrls = (html, minImages = 0) => {
+    const imgSrcUrls = getImgSrcUrls(html);
+
+    if (imgSrcUrls.length < minImages) return false;
+
+    return imgSrcUrls.every((url) => {
+        const normalized = url.replace(/&amp;/g, "&");
+        return /^https:\/\/images\.unsplash\.com\/photo-/i.test(normalized)
+            && /[?&]auto=format\b/i.test(normalized)
+            && /[?&]fit=crop\b/i.test(normalized)
+            && /[?&]w=1200\b/i.test(normalized)
+            && /[?&]q=80\b/i.test(normalized);
+    });
+};
+
+const hasPolishedLayoutMarkers = (html) => {
+    const styleMatch = html.match(/<style\b[^>]*>([\s\S]*?)<\/style>/i);
+    if (!styleMatch) return false;
+
+    const css = styleMatch[1];
+    const hasRealCss = css.length > 2500;
+    const hasLayout = /display\s*:\s*(grid|flex)/i.test(css) && /gap\s*:/i.test(css);
+    const hasResponsiveGrid = /repeat\s*\(\s*(auto-fit|auto-fill)|minmax\s*\(/i.test(css);
+    const hasCardStyling = /border-radius\s*:|box-shadow\s*:|background\s*:\s*linear-gradient/i.test(css);
+    const hasImageStyling = /object-fit\s*:\s*cover/i.test(css);
+
+    return hasRealCss && hasLayout && hasResponsiveGrid && hasCardStyling && hasImageStyling;
+};
+
+const getRequestedImageCount = (prompt) => {
+    const normalized = String(prompt || "").toLowerCase();
+    const match = normalized.match(/(?:more than|at least|minimum|min)?\s*(\d+)\s+(?:unique\s+)?images?/i);
+    if (!match) return 0;
+
+    const count = Number(match[1]);
+    if (!Number.isFinite(count)) return 0;
+
+    return normalized.includes("more than") ? count + 1 : count;
+};
+
+const validateGeneratedHtml = (html, options = {}) => {
+    if (!html || typeof html !== "string") {
+        return { ok: false, reason: "missing HTML code" };
+    }
+
+    if (!hasCompleteHtmlStructure(html)) {
+        return { ok: false, reason: "HTML is incomplete or malformed" };
+    }
+
+    if (!hasResponsiveMarkers(html)) {
+        return { ok: false, reason: "missing viewport meta tag or at least two media queries" };
+    }
+
+    if (!hasUniqueImages(html)) {
+        return { ok: false, reason: "duplicate image URLs were used" };
+    }
+
+    if (!hasValidImageUrls(html, options.minImages || 0)) {
+        return { ok: false, reason: `image URLs are broken/incomplete or fewer than ${options.minImages || 1} valid images were generated` };
+    }
+
+    if (!hasInteractionMarkers(html)) {
+        return { ok: false, reason: "buttons, navigation, forms, or mobile menu do not have enough JavaScript behavior" };
+    }
+
+    if (!hasPolishedLayoutMarkers(html)) {
+        return { ok: false, reason: "layout CSS is too basic to be considered a polished responsive website" };
+    }
+
+    return { ok: true, reason: "" };
+};
+
 const makeResponsiveHtml = (html) => {
     if (!html || typeof html !== "string") return html;
 
     let output = html.trim();
+
+    if (!/<!doctype\s+html/i.test(output)) {
+        output = `<!DOCTYPE html>\n${output}`;
+    }
 
     if (!/<meta\s+name=["']viewport["']/i.test(output)) {
         if (/<head[^>]*>/i.test(output)) {
@@ -225,34 +416,50 @@ const makeResponsiveHtml = (html) => {
     return output;
 };
 
-const getResponsiveGeneration = async (prompt, retryMessage) => {
+const getResponsiveGeneration = async (prompt, retryMessage, options = {}) => {
     let raw = "";
+    const attempts = options.attempts || 2;
+    let lastReason = "invalid AI response";
 
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < attempts; i++) {
         const attemptPrompt = i === 0
             ? prompt
             : `${prompt}
 
 ${retryMessage}
+Previous validation failure: ${lastReason}
 RETURN ONLY RAW JSON.`;
 
-        raw = await generateResponse(attemptPrompt);
+        raw = await generateResponse(attemptPrompt, {
+            models: options.models,
+            maxTokens: options.maxTokens
+        });
         const parsed = await extractJson(raw);
+
+        if (!parsed?.code || typeof parsed.code !== "string") {
+            lastReason = "response was not valid JSON with a string code field";
+            continue;
+        }
 
         if (parsed?.code && typeof parsed.code === "string") {
             const responsiveCode = makeResponsiveHtml(parsed.code);
+            const validation = validateGeneratedHtml(responsiveCode, {
+                minImages: options.minImages || 0
+            });
 
-            if (hasResponsiveMarkers(responsiveCode)) {
+            if (validation.ok) {
                 return {
                     message: parsed.message || "Website generated successfully.",
                     code: responsiveCode
                 };
             }
+
+            lastReason = validation.reason;
         }
     }
 
-    console.log("ai returned invalid response", raw);
-    return null;
+    console.log("ai returned invalid response", lastReason, raw);
+    return { error: lastReason };
 };
 
 
@@ -271,14 +478,19 @@ export const generateWebsite = async (req, res) => {
             return res.status(400).json({ message: "you have not enough credits to generate a webiste" })
         }
 
-        const finalPrompt = `${masterPrompt.replace("{USER_PROMPT}", prompt)}${responsiveRequirements}`
+        const finalPrompt = `${masterPrompt.replace("{USER_PROMPT}", prompt)}${responsiveRequirements}${imageDiversityRequirements}${interactiveRequirements}`
         const generated = await getResponsiveGeneration(
             finalPrompt,
-            "The previous output failed responsive validation. Regenerate it with a viewport meta tag, at least two @media queries, mobile-first CSS, one-column mobile sections, responsive navigation, and no horizontal overflow."
+            "The previous output failed validation. Regenerate a complete valid HTML document with no malformed visible tag text, no broken images, polished ecommerce/product-card styling, a viewport meta tag, at least two @media queries, mobile-first CSS, responsive navigation, no horizontal overflow, unique complete Unsplash image URLs, and working JavaScript click/submit handlers.",
+            {
+                attempts: 3,
+                maxTokens: 16000,
+                minImages: getRequestedImageCount(prompt)
+            }
         );
 
-        if (!generated) {
-            return res.status(400).json({ message: "ai returned invalid response" })
+        if (generated?.error) {
+            return res.status(400).json({ message: `ai returned invalid response: ${generated.error}` })
         }
 
         const website = await Website.create({
@@ -364,11 +576,17 @@ USER REQUEST:
 ${prompt}
 
 ${responsiveRequirements}
+${imageDiversityRequirements}
+${interactiveRequirements}
 
 IMPORTANT:
 - Preserve all existing content unless the user asks to change it.
 - The updated full HTML must remain mobile-first and responsive.
 - Include viewport meta, responsive media queries, flexible layouts, and no horizontal mobile overflow.
+- If adding or replacing images, use unique image URLs. Never repeat the same image URL across multiple cards or sections.
+- If the user asks for more images, add varied section-specific images instead of duplicating the existing one.
+- Fix broken buttons as part of every update. Buttons, nav links, mobile menu controls, and forms must have working JavaScript handlers.
+- Keep all interactions iframe-safe. Do not use page reloads or external navigation for normal SPA actions.
 
 RETURN RAW JSON ONLY:
 {
@@ -378,16 +596,21 @@ RETURN RAW JSON ONLY:
 `
         const finalUpdatePrompt = `${updatePrompt}
 
-The updated HTML will be rejected unless it contains a viewport meta tag and at least two @media queries.
+The updated HTML will be rejected unless it contains a viewport meta tag, at least two @media queries, no duplicate image URLs, and working JavaScript event handlers for buttons/nav/forms.
 RETURN ONLY RAW JSON.`
 
         const generated = await getResponsiveGeneration(
             finalUpdatePrompt,
-            "The previous output failed responsive validation. Regenerate the full updated HTML with a viewport meta tag and at least two @media queries."
+            "The previous output failed validation. Regenerate the full updated HTML with complete valid document structure, polished responsive layout CSS, no malformed visible tag text, no broken images, a viewport meta tag, at least two @media queries, unique complete Unsplash image URLs, and working JavaScript click/submit handlers.",
+            {
+                attempts: 2,
+                models: fastModels,
+                minImages: getRequestedImageCount(prompt)
+            }
         );
 
-        if (!generated) {
-            return res.status(400).json({ message: "ai returned invalid response" })
+        if (generated?.error) {
+            return res.status(400).json({ message: `ai returned invalid response: ${generated.error}` })
         }
 
 

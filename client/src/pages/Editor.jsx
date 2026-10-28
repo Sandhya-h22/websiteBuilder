@@ -25,11 +25,16 @@ function WebsiteEditor() {
     const [messages, setMessages] = useState([])
     const [prompt, setPrompt] = useState("")
     const iframeRef = useRef(null)
+    const editorRef = useRef(null)
     const [updateLoading, setUpdateLoading] = useState(false)
     const [thinkingIndex, setThinkingIndex] = useState(0)
     const [showCode, setShowCode] = useState(false)
     const [showFullPreview, setShowFullPreview] = useState(false)
     const [showChat, setShowChat] = useState(false)
+    const handleEditorMount = (editor) => {
+        editorRef.current = editor
+        setTimeout(() => editor.layout(), 50)
+    }
     const handleUpdate = async () => {
         if (!prompt) return
         setUpdateLoading(true)
@@ -91,6 +96,16 @@ function WebsiteEditor() {
         iframeRef.current.src = url
         return () => URL.revokeObjectURL(url)
     }, [code])
+
+    useEffect(() => {
+        if (!showCode || !editorRef.current) return;
+        const layoutTimer = setTimeout(() => {
+            editorRef.current.layout()
+            editorRef.current.focus()
+        }, 120)
+
+        return () => clearTimeout(layoutTimer)
+    }, [showCode])
 
     if (error) {
         return (
@@ -236,18 +251,34 @@ function WebsiteEditor() {
                         initial={{ x: "100%" }}
                         animate={{ x: 0 }}
                         exit={{ x: "100%" }}
-                        className="fixed inset-y-0 right-0 w-full lg:w-[45%] z-[9999] bg-[#1e1e1e] flex flex-col"
+                        className="fixed inset-y-0 right-0 w-full lg:w-[45%] z-[9999] bg-[#1e1e1e] flex flex-col min-h-0"
                     >
                         <div className='h-12 px-4 flex justify-between items-center border-b border-white/10 bg-[#1e1e1e]'>
                             <span className='text-sm font-medium'>index.html</span>
                             <button onClick={() => setShowCode(false)}><X size={18} /></button>
                         </div>
-                        <Editor
-                            theme='vs-dark'
-                            value={code}
-                            language='html'
-                            onChange={(v) => setCode(v)}
-                        />
+                        <div className='flex-1 min-h-0'>
+                            <Editor
+                                height="100%"
+                                width="100%"
+                                theme='vs-dark'
+                                value={code}
+                                language='html'
+                                onMount={handleEditorMount}
+                                onChange={(value) => setCode(value ?? "")}
+                                loading={<div className='h-full flex items-center justify-center text-zinc-400 text-sm'>Loading editor...</div>}
+                                options={{
+                                    automaticLayout: true,
+                                    wordWrap: "on",
+                                    minimap: { enabled: false },
+                                    fontSize: 13,
+                                    tabSize: 2,
+                                    scrollBeyondLastLine: false,
+                                    formatOnPaste: true,
+                                    formatOnType: true,
+                                }}
+                            />
+                        </div>
 
                     </motion.div>
                 )}

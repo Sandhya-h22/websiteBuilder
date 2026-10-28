@@ -5,7 +5,15 @@ const models = [
     "inclusionai/ling-3.1-flash"
 ]
 
-export const generateResponse = async (prompt) => {
+export const fastModels = [
+    process.env.OPENROUTER_UPDATE_MODEL || "inclusionai/ling-3.1-flash",
+    process.env.OPENROUTER_MODEL || "deepseek/deepseek-chat",
+    "apodex/apodex-1.1-mini:free"
+]
+
+export const generateResponse = async (prompt, options = {}) => {
+    const requestModels = options.models || models;
+
     const res = await fetch(openRouterUrl, {
         method: 'POST',
         headers: {
@@ -13,7 +21,8 @@ export const generateResponse = async (prompt) => {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            models,
+            models: requestModels,
+            max_tokens: options.maxTokens || 12000,
             messages: [
                 { role: "system", content: "You must return ONLY valid raw JSON." }
                 ,
