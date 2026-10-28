@@ -1,12 +1,14 @@
-import React, { useEffect, useState } from 'react'
+import React, { lazy, Suspense, useEffect, useState } from 'react'
 import { AnimatePresence, motion } from "motion/react"
-import LoginModal from '../components/LoginModal'
 import { useDispatch, useSelector } from 'react-redux'
 import { Coins, CreditCard } from "lucide-react"
 import { serverUrl } from '../config'
 import axios from 'axios'
 import { setUserData } from '../redux/userSlice'
 import { useNavigate } from 'react-router-dom'
+
+const LoginModal = lazy(() => import('../components/LoginModal'))
+
 function Home() {
 
     const highlights = [
@@ -212,7 +214,11 @@ function Home() {
                 &copy; {new Date().getFullYear()} GenWeb.ai
             </footer>
 
-            {openLogin && <LoginModal open={openLogin} onClose={() => setOpenLogin(false)} />}
+            {openLogin && (
+                <Suspense fallback={null}>
+                    <LoginModal open={openLogin} onClose={() => setOpenLogin(false)} />
+                </Suspense>
+            )}
 
         </div>
     )
