@@ -1,14 +1,23 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { AnimatePresence, motion } from "motion/react"
 import { signInWithPopup } from 'firebase/auth'
 import { auth, provider } from '../firebase'
 import axios from "axios"
-import { serverUrl } from '../config'
+import { isServerConfigured, serverUrl } from '../config'
 import { useDispatch } from 'react-redux'
 import { setUserData } from '../redux/userSlice'
 function LoginModal({ open, onClose }) {
 const dispatch=useDispatch()
+const [authError, setAuthError] = useState("")
+const [isSigningIn, setIsSigningIn] = useState(false)
     const handleGoogleAuth=async ()=>{
+        if (!isServerConfigured) {
+            setAuthError("Login is not configured yet. Set VITE_SERVER_URL to your deployed backend URL in Vercel, then redeploy.")
+            return
+        }
+
+        setAuthError("")
+        setIsSigningIn(true)
         try {
             const result=await signInWithPopup(auth,provider)
             const {data}=await axios.post(`${serverUrl}/api/auth/google`,{
@@ -19,7 +28,14 @@ const dispatch=useDispatch()
             dispatch(setUserData(data))
             onClose()
         } catch (error) {
-            console.log(error)
+            console.error("Google sign-in failed:", error)
+            if (error.code === "auth/unauthorized-domain") {
+                setAuthError("This website domain is not authorized in Firebase Authentication.")
+            } else {
+                setAuthError(error.response?.data?.message || error.message || "Google sign-in failed. Please try again.")
+            }
+        } finally {
+            setIsSigningIn(false)
         }
     }
     return (
@@ -72,15 +88,22 @@ const dispatch=useDispatch()
                                     whileHover={{ scale: 1.04 }}
                                     whileTap={{ scale: 0.96 }}
                                     onClick={handleGoogleAuth}
+                                    disabled={isSigningIn}
                                     className="group relative w-full h-13 rounded-xl bg-white text-black font-semibold shadow-xl overflow-hidden"
                                 >
 
                                     <div className='relative flex items-center justify-center gap-3'>
                                         <img src="https://www.svgrepo.com/show/303108/google-icon-logo.svg" alt="" className='h-5 w-5' />
-                                        Continue with Google
+                                        {isSigningIn ? "Signing in..." : "Continue with Google"}
                                     </div>
 
                                 </motion.button>
+
+                                {authError && (
+                                    <p role="alert" className="mt-4 text-sm text-red-400">
+                                        {authError}
+                                    </p>
+                                )}
 
                                 <div className='flex items-center gap-4 my-10'>
                                     <div className='h-px flex-1 bg-white/10' />
